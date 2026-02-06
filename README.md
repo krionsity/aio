@@ -1,26 +1,12 @@
 ## Quick install examples
-
-Run as root (preferred on fresh VPS):
-```bash
-curl -fsSL https://raw.githubusercontent.com/krionsity/aio/main/setup-vps.sh -o setup-vps.sh
-chmod +x setup-vps.sh
-sudo ./setup-vps.sh
-```
-
-Run and inspect first:
-```bash
-curl -fsSL https://raw.githubusercontent.com/krionsity/aio/main/setup-vps.sh -o setup-vps.sh
-less setup-vps.sh
-# if good:
-sudo bash setup-vps.sh
-```
-
-Original one-liner (not recommended without inspection):
 ```bash
 curl -fsSL https://raw.githubusercontent.com/krionsity/aio/main/setup-vps.sh | bash
 ```
-
 ## Verify installation
+
+```bash
+source ~/.bashrc
+```
 
 After the script finishes, run:
 ```bash
