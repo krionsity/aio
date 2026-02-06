@@ -1,70 +1,70 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
-echo "=== VPS BASE SETUP (NO DOCKER) ==="
+export DEBIAN_FRONTEND=noninteractive
 
-# 1. Update system
-apt update -y
-apt upgrade -y
+if [[ "${EUID:-$(id -u)}" -ne 0 ]]; then
+  echo "Run as root (or use sudo)."
+  exit 1
+fi
 
-# 2. Install base packages
-apt install -y \
-  curl wget git unzip zip \
-  build-essential \
+if [[ -r /etc/os-release ]]; then
+  . /etc/os-release
+  case "${ID:-}" in
+    ubuntu|debian) ;;
+    *) case "${ID_LIKE:-}" in
+         *debian*) ;;
+         *) echo "Unsupported OS (Ubuntu/Debian only)."; exit 1 ;;
+       esac ;;
+  esac
+else
+  echo "Cannot detect OS."
+  exit 1
+fi
+
+apt-get update -y
+apt-get upgrade -y
+
+apt-get install -y --no-install-recommends \
+  ca-certificates curl wget git unzip zip \
+  build-essential software-properties-common \
   screen tmux htop nano \
-  ca-certificates software-properties-common
+  openssl jq lsof net-tools \
+  python3 python3-pip python3-venv
 
-# 3. Install Python 3 + pip + venv
-apt install -y python3 python3-pip python3-venv
-
-# 4. Install Node.js LTS (NodeSource)
 curl -fsSL https://deb.nodesource.com/setup_lts.x | bash -
-apt install -y nodejs
+apt-get install -y nodejs
 
-# 5. Upgrade pip
 python3 -m pip install --upgrade pip
 
-# 6. Alias setup
-BASHRC="$HOME/.bashrc"
+cat > /etc/profile.d/vps-aio.sh <<'EOF'
+alias py='python3'
+alias pip='pip3'
 
-# alias py -> python3
-if ! grep -q "alias py=" "$BASHRC"; then
-  echo "alias py='python3'" >> "$BASHRC"
-fi
-
-# alias pip -> pip3
-if ! grep -q "alias pip=" "$BASHRC"; then
-  echo "alias pip='pip3'" >> "$BASHRC"
-fi
-
-# alias vak -> activate venv
-if ! grep -q "alias vak=" "$BASHRC"; then
-  echo "alias vak='source .venv/bin/activate'" >> "$BASHRC"
-fi
-
-# 7. Auto-create venv helper (optional)
-if ! grep -q "mkvenv()" "$BASHRC"; then
-cat << 'EOF' >> "$BASHRC"
+vak() {
+  if [ -f ".venv/bin/activate" ]; then
+    . ".venv/bin/activate"
+  else
+    echo "No .venv in $(pwd)"
+    return 1
+  fi
+}
 
 mkvenv() {
   python3 -m venv .venv
-  source .venv/bin/activate
+  . ".venv/bin/activate"
   pip install --upgrade pip
 }
 EOF
+
+chmod 0644 /etc/profile.d/vps-aio.sh
+
+if [[ -f /root/.bashrc ]]; then
+  if ! grep -q "^if \[ -f /etc/profile \]; then \. /etc/profile; fi$" /root/.bashrc 2>/dev/null; then
+    printf "\nif [ -f /etc/profile ]; then . /etc/profile; fi\n" >> /root/.bashrc
+  fi
 fi
 
-# 8. Reload bashrc
-source "$BASHRC"
-
-echo ""
-echo "=== INSTALLATION COMPLETE ==="
-echo "Python  : $(python3 --version)"
-echo "Node    : $(node --version)"
-echo "NPM     : $(npm --version)"
-echo ""
-echo "Aliases available:"
-echo "  py    -> python3"
-echo "  pip   -> pip3"
-echo "  vak   -> activate .venv"
-echo "  mkvenv-> create + activate venv"
+echo "Python: $(python3 --version)"
+echo "Node: $(node -v)"
+echo "NPM: $(npm --version)"
